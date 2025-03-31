@@ -16,8 +16,8 @@ Spēle beidzas, kad vairs nav skaitļu pāru, ko var aizvietot. Ja spēlētāju 
 
 **Studentu vārdi, uzvārdi, apl. numuri**
 
-Aleksis Lipsnis 231RDB268
-Aigars Reinholds 231RDB285
-Kate Vasiljeva 231RDB216
-Amanda Veidere 211RBC112
-Daniils Kezins 231RDB261
+Aleksis Lipsnis 231RDB268<br>
+Aigars Reinholds 231RDB285<br>
+Kate Vasiljeva 231RDB216<br>
+Amanda Veidere 211RBC112<br>
+Daniils Kezins 231RDB261<br>

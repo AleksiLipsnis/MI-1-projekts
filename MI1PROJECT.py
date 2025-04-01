@@ -73,8 +73,8 @@ class NumberGame:
             'ir_bota_gajiens': ir_bota_gajiens,
             'izvele': [indekss, indekss + 1]
         }
-
-    def novērtēt_stāvoku(self, mezgls):
+    
+    def novertet_stavokli(self, mezgls):
         if len(mezgls.skaitli) == 1:
             return mezgls.bota_punkti - mezgls.speletaja_punkti
 
@@ -85,117 +85,135 @@ class NumberGame:
                      (mezgls.bota_punkti - mezgls.speletaja_punkti) * 0.5 +
                      len(mezgls.skaitli) * 0.3)
         return vertējums
+    
+    def izveidot_speles_koku(self, mezgls, dziļums):
+        if dziļums == 0 or len(mezgls.skaitli) < 2:
+            return
 
-    def izveidot_spēles_koku(self, sakuma_mezgls, max_depth):
         self.visited_nodes += 1
-        self.max_depth_reached = max(self.max_depth_reached, sakuma_mezgls.dziļums)
+        self.max_depth_reached = max(self.max_depth_reached, mezgls.dziļums)
 
-        if len(sakuma_mezgls.skaitli) == 1 or sakuma_mezgls.dziļums >= max_depth:
-            sakuma_mezgls.punkti = self.novērtēt_stāvoku(sakuma_mezgls)
-            return sakuma_mezgls
+        for i in range(len(mezgls.skaitli) - 1):
+            rezultats = self.veikt_gajienu(mezgls.skaitli, i, mezgls.ir_bota_gajiens)
 
-        for i in range(len(sakuma_mezgls.skaitli) - 1):
-            rezultats = self.veikt_gajienu(sakuma_mezgls.skaitli, i, sakuma_mezgls.ir_bota_gajiens)
-
-            if sakuma_mezgls.ir_bota_gajiens:
-                jaunie_bota_punkti = sakuma_mezgls.bota_punkti + rezultats['punkti']
-                jaunie_speletaja_punkti = sakuma_mezgls.speletaja_punkti
-            else:
-                jaunie_bota_punkti = sakuma_mezgls.bota_punkti
-                jaunie_speletaja_punkti = sakuma_mezgls.speletaja_punkti + rezultats['punkti']
-
-            bērna_mezgls = GameNode(
+            jaunais_mezgls = GameNode(
                 rezultats['jaunie_skaitli'],
-                sakuma_mezgls.dziļums + 1,
-                not sakuma_mezgls.ir_bota_gajiens,
-                jaunie_bota_punkti,
-                jaunie_speletaja_punkti
+                dziļums=mezgls.dziļums + 1,
+                ir_bota_gajiens=not mezgls.ir_bota_gajiens,
+                bota_punkti=mezgls.bota_punkti + rezultats['punkti'] if mezgls.ir_bota_gajiens else mezgls.bota_punkti,
+                speletaja_punkti=mezgls.speletaja_punkti + rezultats['punkti'] if not mezgls.ir_bota_gajiens else mezgls.speletaja_punkti
             )
-            bērna_mezgls.labakais_gajiens = i
-            sakuma_mezgls.berni.append(bērna_mezgls)
-            self.izveidot_spēles_koku(bērna_mezgls, max_depth)
 
-        return sakuma_mezgls
+            self.izveidot_speles_koku(jaunais_mezgls, dziļums - 1)
+            mezgls.berni.append((jaunais_mezgls, rezultats))
 
-    def minimaks(self, mezgls, dziļums, ir_bota_gajiens):
-        self.visited_nodes += 1
-        self.max_depth_reached = max(self.max_depth_reached, dziļums)
-
-        if len(mezgls.skaitli) == 1 or dziļums == 0:
-            mezgls.punkti = self.novērtēt_stāvoku(mezgls)
-            return mezgls.punkti
+    def minimax(self, mezgls, dziļums, ir_bota_gajiens):
+        if dziļums == 0 or len(mezgls.skaitli) < 2:
+            return self.novertet_stavokli(mezgls)
 
         if ir_bota_gajiens:
-            mezgls.punkti = -math.inf
-            for bērns in mezgls.berni:
-                punkti = self.minimaks(bērns, dziļums - 1, False)
-                if punkti > mezgls.punkti:
-                    mezgls.punkti = punkti
-                    mezgls.labakais_gajiens = bērns.labakais_gajiens
+            labaka_vertiba = -math.inf
+            for i in range(len(mezgls.skaitli) - 1):
+                rezultats = self.veikt_gajienu(mezgls.skaitli, i, True)
+                bernu_mezgls = GameNode(
+                    rezultats['jaunie_skaitli'],
+                    dziļums=mezgls.dziļums + 1,
+                    ir_bota_gajiens=False,
+                    bota_punkti=mezgls.bota_punkti + rezultats['punkti'],
+                    speletaja_punkti=mezgls.speletaja_punkti
+                )
+                vertiba = self.minimax(bernu_mezgls, dziļums - 1, False)
+                if vertiba > labaka_vertiba:
+                    labaka_vertiba = vertiba
+                    mezgls.labakais_gajiens = rezultats
+            return labaka_vertiba
         else:
-            mezgls.punkti = math.inf
-            for bērns in mezgls.berni:
-                punkti = self.minimaks(bērns, dziļums - 1, True)
-                if punkti < mezgls.punkti:
-                    mezgls.punkti = punkti
-                    mezgls.labakais_gajiens = bērns.labakais_gajiens
+            sliktaka_vertiba = math.inf
+            for i in range(len(mezgls.skaitli) - 1):
+                rezultats = self.veikt_gajienu(mezgls.skaitli, i, False)
+                bernu_mezgls = GameNode(
+                    rezultats['jaunie_skaitli'],
+                    dziļums=mezgls.dziļums + 1,
+                    ir_bota_gajiens=True,
+                    bota_punkti=mezgls.bota_punkti,
+                    speletaja_punkti=mezgls.speletaja_punkti + rezultats['punkti']
+                )
+                vertiba = self.minimax(bernu_mezgls, dziļums - 1, True)
+                if vertiba < sliktaka_vertiba:
+                    sliktaka_vertiba = vertiba
+                    mezgls.labakais_gajiens = rezultats
+            return sliktaka_vertiba
 
-        return mezgls.punkti
-
-    def alphabeta(self, mezgls, dziļums, alpha, beta, ir_bota_gajiens):
-        self.visited_nodes += 1
-        self.max_depth_reached = max(self.max_depth_reached, dziļums)
-
-        if len(mezgls.skaitli) == 1 or dziļums == 0:
-            mezgls.punkti = self.novērtēt_stāvoku(mezgls)
-            return mezgls.punkti
+    def alphabeta(self, mezgls, dziļums, alfa, beta, ir_bota_gajiens):
+        if dziļums == 0 or len(mezgls.skaitli) < 2:
+            return self.novertet_stavokli(mezgls)
 
         if ir_bota_gajiens:
-            mezgls.punkti = -math.inf
-            for bērns in mezgls.berni:
-                punkti = self.alphabeta(bērns, dziļums - 1, alpha, beta, False)
-                if punkti > mezgls.punkti:
-                    mezgls.punkti = punkti
-                    mezgls.labakais_gajiens = bērns.labakais_gajiens
-                alpha = max(alpha, mezgls.punkti)
-                if alpha >= beta:
+            labaka_vertiba = -math.inf
+            for i in range(len(mezgls.skaitli) - 1):
+                rezultats = self.veikt_gajienu(mezgls.skaitli, i, True)
+                bernu_mezgls = GameNode(
+                    rezultats['jaunie_skaitli'],
+                    dziļums=mezgls.dziļums + 1,
+                    ir_bota_gajiens=False,
+                    bota_punkti=mezgls.bota_punkti + rezultats['punkti'],
+                    speletaja_punkti=mezgls.speletaja_punkti
+                )
+                self.visited_nodes += 1
+                vertiba = self.alphabeta(bernu_mezgls, dziļums - 1, alfa, beta, False)
+                if vertiba > labaka_vertiba:
+                    labaka_vertiba = vertiba
+                    mezgls.labakais_gajiens = rezultats
+                alfa = max(alfa, labaka_vertiba)
+                if beta <= alfa:
                     break  # β nogriešana
+            return labaka_vertiba
         else:
-            mezgls.punkti = math.inf
-            for bērns in mezgls.berni:
-                punkti = self.alphabeta(bērns, dziļums - 1, alpha, beta, True)
-                if punkti < mezgls.punkti:
-                    mezgls.punkti = punkti
-                    mezgls.labakais_gajiens = bērns.labakais_gajiens
-                beta = min(beta, mezgls.punkti)
-                if beta <= alpha:
+            sliktaka_vertiba = math.inf
+            for i in range(len(mezgls.skaitli) - 1):
+                rezultats = self.veikt_gajienu(mezgls.skaitli, i, False)
+                bernu_mezgls = GameNode(
+                    rezultats['jaunie_skaitli'],
+                    dziļums=mezgls.dziļums + 1,
+                    ir_bota_gajiens=True,
+                    bota_punkti=mezgls.bota_punkti,
+                    speletaja_punkti=mezgls.speletaja_punkti + rezultats['punkti']
+                )
+                self.visited_nodes += 1
+                vertiba = self.alphabeta(bernu_mezgls, dziļums - 1, alfa, beta, True)
+                if vertiba < sliktaka_vertiba:
+                    sliktaka_vertiba = vertiba
+                    mezgls.labakais_gajiens = rezultats
+                beta = min(beta, sliktaka_vertiba)
+                if beta <= alfa:
                     break  # α nogriešana
-
-        return mezgls.punkti
-
+            return sliktaka_vertiba
+        
     def izveleties_labako_gajienu(self, skaitli, ir_bota_gajiens):
-        start_time = time.time()
+        sakuma_laiks = time.time()
+
+        # Statistika pirms izsaukuma
         self.visited_nodes = 0
         self.max_depth_reached = 0
 
-        sakuma_mezgls = GameNode(skaitli, 0, ir_bota_gajiens, self.bota_punkti, self.speletaja_punkti)
-        self.izveidot_spēles_koku(sakuma_mezgls, self.search_depth)
+        saknes_mezgls = GameNode(skaitli, 0, ir_bota_gajiens, self.bota_punkti, self.speletaja_punkti)
+        self.izveidot_speles_koku(saknes_mezgls, self.search_depth)
 
         if self.use_minimax:
-            self.minimaks(sakuma_mezgls, self.search_depth, ir_bota_gajiens)
+            self.minimax(saknes_mezgls, self.search_depth, ir_bota_gajiens)
         else:
-            self.alphabeta(sakuma_mezgls, self.search_depth, -math.inf, math.inf, ir_bota_gajiens)
+            self.alphabeta(saknes_mezgls, self.search_depth, -math.inf, math.inf, ir_bota_gajiens)
 
-        move_time = time.time() - start_time
-        self.bot_move_times.append(move_time)
+        gajiena_laiks = time.time() - sakuma_laiks
+        self.bot_move_times.append(gajiena_laiks)
         self.total_bot_moves += 1
 
         print(f" ")
         print(f"Apstrādāti {self.visited_nodes} mezgli")
-        print(f"Gājiena laiks: {move_time:.2f} sekundes")
+        print(f"Gājiena laiks: {gajiena_laiks:.2f} sekundes")
 
-        return sakuma_mezgls.labakais_gajiens
-
+        return saknes_mezgls.labakais_gajiens
+    
     def create_main_screen(self):
         self.clear_screen()
 
@@ -210,12 +228,12 @@ class NumberGame:
                                    bg="lightblue", activebackground="blue", length=200)
         self.numbers_range.pack(pady=(10, 5))
 
-        Label(self.objects, text="Izvēlieties meklēšanas dziļumu (1-10)",
+        Label(self.objects, text="Izvēlieties meklēšanas dziļumu (1-9)",
               font=("Arial", 14), **self.label_props).pack(pady=(10, 5))
 
-        self.depth_scale = Scale(self.objects, from_=1, to=10, orient=HORIZONTAL,
+        self.depth_scale = Scale(self.objects, from_=1, to=9, orient=HORIZONTAL,
                                  bg="lightblue", activebackground="blue", length=200)
-        self.depth_scale.set(3)  # Default depth
+        self.depth_scale.set(3)  # Noklusejuma dzilums
         self.depth_scale.pack(pady=(10, 5))
 
         Button(self.objects, text="Turpināt", **self.button_props,
@@ -237,7 +255,7 @@ class NumberGame:
 
         Button(self.objects, text="Mašīna", **self.button_props,
                bg="lightblue", command=lambda: self.set_starter(True)).pack(pady=5)
-
+        
     def set_starter(self, bots_sāk):
         self.bots_sāk = bots_sāk
         self.choose_algorithm()
@@ -266,12 +284,12 @@ class NumberGame:
         self.start_game()
 
     def start_game(self):
-        # Reset statistics for new game
+         # Reset statistics for new game
         self.visited_nodes = 0
         self.bot_move_times = []
         self.total_bot_moves = 0
 
-        self.numbers_list = [random.randrange(1, 10) for _ in range(self.selected_range)]
+        self.numbers_list = [random.randint(1, 9) for _ in range(self.selected_range)]
         self.history = [{
             'skaitli': self.numbers_list.copy(),
             'info': "Sākuma stāvoklis",
@@ -282,8 +300,9 @@ class NumberGame:
         }]
         self.bota_punkti = 0
         self.speletaja_punkti = 0
-        self.game_active = True
         self.selected_indices = []
+        self.game_active = True
+
         self.clear_screen()
 
         self.game_frame = Frame(self.master, bg="lightblue")
@@ -306,19 +325,20 @@ class NumberGame:
             self.bot_move()
 
     def update_game_ui(self):
+        # Notīra vēstures un pašreizējās virknes logus
         for widget in self.history_frame.winfo_children():
             widget.destroy()
         for widget in self.current_frame.winfo_children():
             widget.destroy()
 
-        # Rādām vēsturi
+         # Gājienu vēstures attēlošana
         for entry in self.history:
             frame = Frame(self.history_frame, bg="lightblue")
-            frame.pack(anchor="w", pady=(0, 5))
+            frame.pack(anchor="w", pady=(2, 2), fill="x", padx=5)
 
             Label(frame, text=f"Gājiens {entry['gajiena_nr']}: {entry['info']}",
                   font=("Arial", 10), **self.label_props).pack(side="left")
-
+            
             for i, num in enumerate(entry['skaitli']):
                 bg_color = "yellow" if entry['izvele'] and i in entry['izvele'] else "white"
                 Label(frame, text=str(num), font=("Arial", 12), width=3,
@@ -328,54 +348,55 @@ class NumberGame:
                   text=f"Punkti: Spēlētājs={entry['speletaja_punkti']}, Bots={entry['bota_punkti']}",
                   font=("Arial", 10), **self.label_props).pack(side="left", padx=10)
 
-        # Rādām pašreizējo stāvokli
+        # Pašreizējais stāvoklis
         current_frame = Frame(self.current_frame, bg="lightblue")
         current_frame.pack(pady=(10, 0))
 
         Label(current_frame, text="Pašreizējais stāvoklis:",
-              font=("Arial", 12), **self.label_props).pack(side="left")
-
+            font=("Arial", 12), **self.label_props).pack(side="left")
+        
         self.buttons = []
         for i, num in enumerate(self.numbers_list):
-            btn = Button(current_frame, text=str(num), font=("Arial", 14), width=4, height=2,
-                         command=lambda i=i: self.select_number(i))
+            btn = Button(current_frame, text=str(num), width=4, font=("Arial", 14),
+                        command=lambda i=i: self.select_number(i))
             btn.pack(side="left", padx=2)
             self.buttons.append(btn)
 
+        # Atjauno punktus
         self.score_label.config(text=f"Spēlētājs: {self.speletaja_punkti} | Bots: {self.bota_punkti}")
 
     def select_number(self, index):
         if not self.game_active:
             return
-
+        
         # Ja jau ir izvēlēti 2 skaitļi, sākam jaunu izvēli
         if len(self.selected_indices) == 2:
             self.selected_indices = []
             self.update_button_colors()
-
-        # Pievienojam jauno izvēli
+        
+         # Ja tas ir pirmais klikšķis
         if index not in self.selected_indices:
             self.selected_indices.append(index)
-            self.buttons[index].configure(bg="yellow")
+            self.buttons[index].config(bg="yellow")
 
-        # Ja ir izvēlēti 2 skaitļi, pārbaudam vai tie ir kaimiņi
+        # Ja jau ir izvēlēti 2 skaitļi, sākam jaunu izvēli
         if len(self.selected_indices) == 2:
-            # Sakārtojam indeksus augošā secībā
             self.selected_indices.sort()
 
-            # Pārbaudam vai skaitļi ir kaimiņi
+            # Jābūt blakus skaitļiem
             if abs(self.selected_indices[0] - self.selected_indices[1]) == 1:
-                self.make_move(self.selected_indices, False)
+                 self.make_move(self.selected_indices, False)
+                 
+                 if self.game_active:
+                    self.master.after(500, self.bot_move)
             else:
-                # Ja nav kaimiņi, sākam jaunu izvēli
+                # Nav blakus – atiestata izvēli
                 messagebox.showwarning("Kļūda", "Jāizvēlas kaimiņu skaitļi!")
                 self.selected_indices = []
                 self.update_button_colors()
                 return
-
+            
             self.selected_indices = []
-            if len(self.numbers_list) > 1:
-                self.master.after(1000, self.bot_move)
 
     def make_move(self, indices, is_bot_move):
         if len(indices) != 2 or abs(indices[0] - indices[1]) != 1:
@@ -383,13 +404,13 @@ class NumberGame:
 
         rezultats = self.veikt_gajienu(self.numbers_list, indices[0], is_bot_move)
 
-        # Atjauninam punktus
+        # Atjaunot punktus
         if is_bot_move:
             self.bota_punkti += rezultats['punkti']
         else:
             self.speletaja_punkti += rezultats['punkti']
 
-        # Pievienojam vēsturei
+        # Gājienu piefiksēšana vēsturē
         self.history.append({
             'skaitli': rezultats['vecie_skaitli'],
             'info': f"{'Bots' if is_bot_move else 'Spēlētājs'}: {rezultats['gajiena_info']}",
@@ -399,46 +420,56 @@ class NumberGame:
             'izvele': rezultats['izvele']
         })
 
-        # Atjauninam pašreizējo stāvokli
         self.numbers_list = rezultats['jaunie_skaitli']
 
         self.update_game_ui()
-        self.check_game_end()
+        if len(self.numbers_list) <= 1:
+            self.beigt_speli()
 
     def bot_move(self):
         if not self.game_active or len(self.numbers_list) <= 1:
             return
+        
+        gajiens = self.izveleties_labako_gajienu(self.numbers_list, True)
 
-        move_index = self.izveleties_labako_gajienu(self.numbers_list, True)
-        if move_index is not None and move_index < len(self.numbers_list) - 1:
-            self.make_move([move_index, move_index + 1], True)
+        if gajiens and 'izvele' in gajiens:
+            self.make_move(gajiens['izvele'], True)
+        
 
-    def check_game_end(self):
+    def beigt_speli(self):
         if len(self.numbers_list) <= 1:
             self.game_active = False
 
-            # Calculate average move time
-            avg_time = sum(self.bot_move_times) / len(self.bot_move_times) if self.bot_move_times else 0
+        # Aprēķināt vidējo bota gājiena laiku
+        if self.bot_move_times:
+            videjais_laiks = sum(self.bot_move_times) / len(self.bot_move_times)
+            videjais_laiks = round(videjais_laiks, 3)
+        else:
+            videjais_laiks = 0.0   
 
-            winner = "Neizšķirts!"
-            if self.speletaja_punkti > self.bota_punkti:
-                winner = "Spēlētājs uzvarēja!"
-            elif self.bota_punkti > self.speletaja_punkti:
-                winner = "Bots uzvarēja!"
+        # Noteikt uzvarētāju
+        if self.bota_punkti > self.speletaja_punkti:
+            rezultats = "Uzvarēja BOTS!"
+        elif self.speletaja_punkti > self.bota_punkti:
+            rezultats = "Uzvarēja SPĒLĒTĀJS!"
+        else:
+            rezultats = "Neizšķirts!"
 
-            stats_message = (
-                f"{winner}\n\n"
-                f"Spēlētājs: {self.speletaja_punkti}\n"
-                f"Bots: {self.bota_punkti}\n\n"
-                f"Statistika:\n"
-                f"Vidējais gājiena laiks: {avg_time:.4f} sekundes"
-            )
+        # Izveidot ziņojumu
+        statistika = f"""
+            Rezultāts: {rezultats}
 
-            messagebox.showinfo("Spēle beigusies!", stats_message)
+            Spēlētāja punkti: {self.speletaja_punkti}
+            Bota punkti: {self.bota_punkti}
 
-            Button(self.game_frame, text="Jauna spēle", **self.button_props,
+            Vidējais gājiena laiks: {videjais_laiks} sekundes
+            """
+
+        messagebox.showinfo("Spēles beigas", statistika)
+
+        Button(self.game_frame, text="Jauna spēle", **self.button_props,
                    bg="lightgreen", command=self.create_main_screen).pack(pady=20)
-
+    
     def update_button_colors(self):
         for btn in self.buttons:
             btn.configure(bg="SystemButtonFace")
@@ -446,8 +477,7 @@ class NumberGame:
     def clear_screen(self):
         for widget in self.master.winfo_children():
             widget.destroy()
-
-
+        
 if __name__ == "__main__":
     root = tk.Tk()
     app = NumberGame(root)
